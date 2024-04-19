@@ -22,6 +22,7 @@ from .uper_head import UPerHead
 
 
 from .segformer_head import SegFormerHead
+from .segformer_head_gscnn import SegFormerGSCNNHead
 
 __all__ = [
     'FCNHead', 'PSPHead', 'ASPPHead', 'PSAHead', 'NLHead', 'GCHead', 'CCHead',

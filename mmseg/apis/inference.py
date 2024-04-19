@@ -94,7 +94,7 @@ def inference_segmentor(model, img):
 
     # forward the model
     with torch.no_grad():
-        result = model(return_loss=False, rescale=True, **data)
+        result = model(return_loss=False, rescale=True, **data) ## error here
     return result
 
 
