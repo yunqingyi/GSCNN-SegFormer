@@ -146,6 +146,8 @@ class SegFormerGSCNNHead(BaseDecodeHead):
         self.dsn3 = nn.Conv2d(c2_in_channels, 1, 1)
         self.dsn4 = nn.Conv2d(c1_in_channels, 1, 1)
 
+        self.sigmoid = nn.Sigmoid()
+
         self.linear_fuse = ConvModule(
             in_channels=embedding_dim*4*2,  # Multiplied by 2 for MLP and Gated outputs
             out_channels=embedding_dim,
@@ -182,10 +184,16 @@ class SegFormerGSCNNHead(BaseDecodeHead):
         c1_resize = resize(c1, size=c1.size()[2:], mode='bilinear', align_corners=False)
         c1_resize_1channel = self.dsn4(c1_resize)
 
-        _c4_gated = self.gated_conv_c4(c4_resize, c3_resize_1channel)  # Here using c4 as both input and gating features, adapt as 
+
+        # ------------------------- gate all layers ----------------------------#
+        _c4_gated = self.gated_conv_c4(c4_resize, c3_resize_1channel)
+        _c4_gated = self.sigmoid(_c4_gated)
         _c3_gated = self.gated_conv_c3(c3_resize, c2_resize_1channel)
+        _c3_gated = self.sigmoid(_c3_gated)
         _c2_gated = self.gated_conv_c2(c2_resize, c1_resize_1channel)
+        _c2_gated = self.sigmoid(_c2_gated)
         _c1_gated = self.gated_conv_c1(c1, c1_resize_1channel)
+        _c1_gated = self.sigmoid(_c1_gated)
 
         # Resize and combine MLP and Gated features
         _c4 = torch.cat([resize(_c4_mlp, size=c1.size()[2:], mode='bilinear', align_corners=False), 
@@ -196,7 +204,41 @@ class SegFormerGSCNNHead(BaseDecodeHead):
                          resize(_c2_gated, size=c1.size()[2:], mode='bilinear', align_corners=False)], dim=1)
         _c1 = torch.cat([_c1_mlp, _c1_gated], dim=1)
 
+
         _c = self.linear_fuse(torch.cat([_c4, _c3, _c2, _c1], dim=1))
+
+        # ------------------------- gate c2, c4 ----------------------------#
+        # _c4_gated = self.gated_conv_c4(c4_resize, c3_resize_1channel)
+        # _c2_gated = self.gated_conv_c2(c2_resize, c1_resize_1channel)
+
+        # # Resize and combine MLP and Gated features
+        # _c4 = torch.cat([resize(_c4_mlp, size=c1.size()[2:], mode='bilinear', align_corners=False), 
+        #                  resize(_c4_gated, size=c1.size()[2:], mode='bilinear', align_corners=False)], dim=1)
+        # _c3 = torch.cat(resize(_c3_mlp, size=c1.size()[2:], mode='bilinear', align_corners=False))
+        # _c2 = torch.cat([resize(_c2_mlp, size=c1.size()[2:], mode='bilinear', align_corners=False),
+        #                  resize(_c2_gated, size=c1.size()[2:], mode='bilinear', align_corners=False)], dim=1)
+
+
+        # _c = self.linear_fuse(torch.cat([_c4, _c3, _c2, _c1_mlp], dim=1))
+
+        # ------------------------- gate c1, c3 ----------------------------#
+        # _c4_gated = self.gated_conv_c4(c4_resize, c3_resize_1channel)
+        # _c3_gated = self.gated_conv_c3(c3_resize, c2_resize_1channel)
+        # _c2_gated = self.gated_conv_c2(c2_resize, c1_resize_1channel)
+        # _c1_gated = self.gated_conv_c1(c1, c1_resize_1channel)
+
+        # # Resize and combine MLP and Gated features
+        # _c4 = torch.cat([resize(_c4_mlp, size=c1.size()[2:], mode='bilinear', align_corners=False), 
+        #                  resize(_c4_gated, size=c1.size()[2:], mode='bilinear', align_corners=False)], dim=1)
+        # _c3 = torch.cat([resize(_c3_mlp, size=c1.size()[2:], mode='bilinear', align_corners=False),
+        #                  resize(_c3_gated, size=c1.size()[2:], mode='bilinear', align_corners=False)], dim=1)
+        # _c2 = torch.cat([resize(_c2_mlp, size=c1.size()[2:], mode='bilinear', align_corners=False),
+        #                  resize(_c2_gated, size=c1.size()[2:], mode='bilinear', align_corners=False)], dim=1)
+        # _c1 = torch.cat([_c1_mlp, _c1_gated], dim=1)
+
+
+        # _c = self.linear_fuse(torch.cat([_c4, _c3, _c2, _c1], dim=1))
+        
 
         x = self.dropout(_c)
         x = self.linear_pred(x)
